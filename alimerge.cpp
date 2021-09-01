@@ -11,136 +11,208 @@
 // It can be compiled in linux via:
 //           g++ <sourcename> -o <finalname>
 /////////////////////////////////////////////////////////////////
-#include <iostream>
+
+#include <algorithm>
+#include <chrono>
 #include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
 
-using namespace std;
+std::string format_duration(std::chrono::milliseconds ms) {
+    auto secs = std::chrono::duration_cast<std::chrono::seconds>(ms);
+    ms -= std::chrono::duration_cast<std::chrono::milliseconds>(secs);
+    auto mins = std::chrono::duration_cast<std::chrono::minutes>(secs);
+    secs -= std::chrono::duration_cast<std::chrono::seconds>(mins);
+    auto hour = std::chrono::duration_cast<std::chrono::hours>(mins);
+    mins -= std::chrono::duration_cast<std::chrono::minutes>(hour);
 
-int main (int argc, char **argv) {
+    std::stringstream ss;
+    if (hour.count())
+        ss << hour.count() << " Hours : ";
+    if (mins.count())
+        ss << mins.count() << " Minutes : ";
+    if (secs.count())
+        ss << secs.count() << " Seconds : ";
+    if (ms.count())
+        ss << ms.count() << " Milliseconds";
 
-    ifstream C80, ali1, ali2;
-    string C80list[50000], ali1list[20000], ali2list[20000];
-    string buff1, buff2, buff3, buff4, buffali1, buffali2, getfile;
-    int C80i=0, ali1i, ali2i, base, first, last, exp;
-    int i, j, k;
-    size_t found, foundp, founde, founds;
+    return ss.str();
+}
 
-    if(argc<4){
-        cout << "Please invoke as: <./program> <base> <starting exponent> <ending exponent>" << endl;
+int main(int argc, char** argv) {
+
+    std::ifstream ali1, ali2;
+    std::string ali1LastC80Composite, commandStr;
+    int base, first, last, exp;
+
+    std::map<std::string, std::string> C80Map;
+    std::map<std::string, std::string> ali1Map;
+
+    if (argc < 4) {
+        std::cout << "Please invoke as: <./program> <base> <starting exponent> <ending exponent>" << std::endl;
         return 0;
     }
 
-    sscanf(argv[1],"%d",&base);
-    sscanf(argv[2],"%d",&first);
-    sscanf(argv[3],"%d",&last);
+    std::chrono::system_clock::duration downloadFileDuration = std::chrono::system_clock::duration::zero();
+    std::chrono::system_clock::duration computationDuration = std::chrono::system_clock::duration::zero();
+    std::chrono::system_clock::duration totalDuration = std::chrono::system_clock::duration::zero();
+    std::chrono::system_clock::time_point globalTimer;
+    std::chrono::system_clock::time_point startTimer;
+    std::chrono::system_clock::time_point endTimer;
 
-    C80.open("OE_3000000_C80.txt");
-    if(C80.is_open()){
-        while(!C80.eof()){
-            getline(C80, C80list[C80i++]);
-        }
-        C80.close();
-    }
-    else {
-        cout << "The 80 digit file was not found - download it? (y/n): ";
-        cin >> getfile;
-        if(getfile=="y")
-            system("wget \"http://www.aliquotes.com/OE_3000000_C80.txt\" -q -O OE_3000000_C80.txt");
-        C80i=0;
-        C80.open("OE_3000000_C80.txt");
-        if(C80.is_open()){
-            while(!C80.eof()){
-                getline(C80, C80list[C80i++]);
+    sscanf_s(argv[1], "%d", &base);
+    sscanf_s(argv[2], "%d", &first);
+    sscanf_s(argv[3], "%d", &last);
+
+    std::ifstream C80File("OE_3000000_C80.txt");
+
+    if (C80File.fail())
+    {
+        std::string getfile;
+        std::cout << "The 80 digit file was not found - download it? (y/n): ";
+        std::cin >> getfile;
+
+        if (getfile == "y") {
+            startTimer = std::chrono::system_clock::now();
+            system(R"("curl -q -s -o OE_3000000_C80.txt "http://www.aliquotes.com/OE_3000000_C80.txt"")");
+            endTimer = std::chrono::system_clock::now();
+            downloadFileDuration += endTimer - startTimer;
+
+            C80File.open("OE_3000000_C80.txt");
+
+            if (!C80File.is_open()) {
+                std::cout << "Trouble has occurred while trying to read the 80 digit file!" << std::endl;
+                return 0;
             }
-            C80.close();
         }
-        else{
-            cout << "Trouble has occurred while trying to read the 80 digit file!" << endl;
+        else {
+            std::cout << "Leaving..." << std::endl;
             return 0;
         }
     }
 
-    cout << "Running base " << base << " from " << first << " through " << last << " . . ." << endl;
+    globalTimer = std::chrono::system_clock::now();
 
-    for(exp=first;exp<=last;exp++){
-        buffali1.assign("wget \"http://www.factordb.com/elf.php?seq=");
-        buffali1.append(to_string(base));
-        buffali1.append("^");
-        buffali1.append(to_string(exp));
-        buffali1.append("&type=1\" -q -O aliseq1");
-        system(buffali1.c_str());
+    std::string line;
+    while (std::getline(C80File, line))
+    {
+        auto founds = line.find(' ', 2);
+        if (founds != std::string::npos) {
+            std::string matchingBase = line.substr(1, founds - 1);
+            std::string composite = line.substr(founds + 1);
+            C80Map[composite] = matchingBase;
+        }
+    }
 
-        ali1i=0;
+    std::cout << "Running base " << base << " from " << first << " through " << last << " . . ." << std::endl;
+
+    for (exp = first; exp <= last; exp++) {
+
+        startTimer = std::chrono::system_clock::now();
+        std::cout << "Downloading base " << base << "^" << exp;
+
+        commandStr = R"(curl -q -s -o aliseq1 "http://www.factordb.com/elf.php?seq=)" + std::to_string(base) + "^" + std::to_string(exp) + R"(&type=1")";
+        system(commandStr.c_str());
+
+        std::cout << " : Done" << std::endl;
+        endTimer = std::chrono::system_clock::now();
+        downloadFileDuration += endTimer - startTimer;
+
+        bool foundC80 = false;
+        ali1LastC80Composite.clear();
+
         ali1.open("aliseq1");
-        if(ali1.is_open()){
-            while(!ali1.eof()){
-                getline(ali1,ali1list[ali1i++]);
+        if (ali1.is_open()) {
+            while (std::getline(ali1, line)) {
+                size_t foundp = line.find('.');
+                size_t founde = line.find('=', foundp + 4);
+                std::string index = line.substr(0, foundp - 1);
+                std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
+
+                ali1Map[composite] = index;
+
+                if (composite.size() == 80) {
+                    ali1LastC80Composite = composite;
+                    foundC80 = true;
+                }
             }
             ali1.close();
         }
-        else{
-            cout << "aliseq1 was not read properly!" << endl;
+        else {
+            std::cout << "aliseq1 was not read properly!" << std::endl;
             return 0;
         }
 
-        buff2.assign("");
-        for(i=0;i<ali1i;i++){
-            foundp=ali1list[i].find(".");
-            founde=ali1list[i].find("=");
-            if(founde-foundp==85){
-                buff2.assign(ali1list[i].substr(foundp+4,80));
-            }
+        if (foundC80) {
+            std::cout << "Found the last 80 digit composite in base " << base << ": [" << ali1LastC80Composite << "]" << std::endl;
         }
-        if(buff2.length()==80){
-            for(i=0;i<C80i;i++){
-                found=C80list[i].find(buff2);
-                if(found!=string::npos){
-                    founds=C80list[i].find(" ",2);
-                    buffali2.assign("wget \"http://www.factordb.com/elf.php?seq=");
-                    buffali2.append(C80list[i].substr(1,founds-1));
-                    buffali2.append("&type=1\" -q -O aliseq2");
-                    system(buffali2.c_str());
+        else {
+            std::cout << "Could not find a 80 digit composite in base " << base << std::endl;
+            return 0;
+        }
 
-                    ali2i=0;
-                    ali2.open("aliseq2");
-                    if(ali2.is_open()){
-                        while(!ali2.eof()){
-                            getline(ali2,ali2list[ali2i++]);
-                        }
-                        ali2.close();
-                    }
-                    else{
-                        cout << "aliseq2 was not read properly!" << endl;
-                        return 0;
-                    }
+        try
+        {
+            // Throw if not found
+            std::string matchingBase = C80Map.at(ali1LastC80Composite);
+            std::cout << "80 digit composite has a matching in base " << matchingBase << std::endl;
 
-                    for(j=0;j<ali1i;j++){
-                        foundp=ali1list[j].find(".");
-                        buff3=ali1list[j].substr(foundp);
-                        for(k=0;k<ali2i;k++){
-                            found=ali2list[k].find(buff3);
-                            if(found!=string::npos){
-                                buff4.assign(to_string(base));
-                                buff4.append("^");
-                                buff4.append(to_string(exp));
-                                buff4.append(":i");
-                                buff4.append(ali1list[j].substr(0,foundp-1));
-                                buff4.append(" merges with ");
-                                buff4.append(C80list[i].substr(1,founds-1));
-                                buff4.append(":i");
-                                foundp=ali2list[k].find(".");
-                                buff4.append(ali2list[k].substr(0,foundp-1));
-                                cout << buff4 << endl;;
-                                k=ali2i;
-                                j=ali1i;
-                            }
-                        }
+            startTimer = std::chrono::system_clock::now();
+            std::cout << "Downloading base " << matchingBase;
+
+            commandStr = R"(curl -q -s -o aliseq2 "http://www.factordb.com/elf.php?seq=)" + matchingBase + R"(&type=1")";
+            system(commandStr.c_str());
+
+            std::cout << " : Done" << std::endl;
+            endTimer = std::chrono::system_clock::now();
+            downloadFileDuration += endTimer - startTimer;
+
+            ali2.open("aliseq2");
+            if (ali2.is_open()) {
+                while (std::getline(ali2, line))
+                {
+                    size_t foundp = line.find('.');
+                    size_t founde = line.find('=');
+                    std::string index = line.substr(0, foundp - 1);
+                    std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
+
+                    auto ali1Search = ali1Map.find(composite);
+                    if (ali1Search != ali1Map.end())
+                    {
+                        std::cout << std::endl << std::to_string(base) + "^" + std::to_string(exp) + ":i" + ali1Search->second + " merges with " + matchingBase + ":i" + index << std::endl;
+                        break;
                     }
                 }
+                ali2.close();
             }
+            else {
+                std::cout << "aliseq2 was not read properly!" << std::endl;
+                return 0;
+            }
+        }
+        catch (const std::exception&)
+        {
+            std::cout << "Could not find 80 digit composite " << ali1LastC80Composite << " in OE_3000000_C80.txt" << std::endl;
         }
     }
 
+    endTimer = std::chrono::system_clock::now();
+    totalDuration = endTimer - globalTimer;
+    computationDuration = totalDuration - downloadFileDuration;
+
+    auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds> (totalDuration);
+    auto downloadMs = std::chrono::duration_cast<std::chrono::milliseconds>(downloadFileDuration);
+    auto computeMs = std::chrono::duration_cast<std::chrono::milliseconds> (computationDuration);
+
+    std::cout << std::endl;
+
+    std::cout << "Total running time   : " << format_duration(totalMs) << std::endl;
+    std::cout << "Downloading file time: " << format_duration(downloadMs) << std::endl;
+    std::cout << "Computation only time: " << format_duration(computeMs) << std::endl;
+
     return 0;
 }
-
