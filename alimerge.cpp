@@ -83,6 +83,8 @@ int main(int argc, char** argv) {
         std::cout << "The 80 digit file was not found - download it? (y/n): ";
         std::cin >> getfile;
 
+        globalTimer = std::chrono::system_clock::now();
+
         if (getfile == "y") {
             startTimer = std::chrono::system_clock::now();
             system(R"(curl -q -s -o OE_3000000_C80.txt "http://www.aliquotes.com/OE_3000000_C80.txt")");
@@ -101,8 +103,9 @@ int main(int argc, char** argv) {
             return 0;
         }
     }
-
-    globalTimer = std::chrono::system_clock::now();
+    else {
+        globalTimer = std::chrono::system_clock::now();
+    }
 
     std::string line;
     while (std::getline(C80File, line))
