@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
 
         if (getfile == "y") {
             startTimer = std::chrono::system_clock::now();
-            system(R"("curl -q -s -o OE_3000000_C80.txt "http://www.aliquotes.com/OE_3000000_C80.txt"")");
+            system(R"(curl -q -s -o OE_3000000_C80.txt "http://www.aliquotes.com/OE_3000000_C80.txt")");
             endTimer = std::chrono::system_clock::now();
             downloadFileDuration += endTimer - startTimer;
 
