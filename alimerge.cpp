@@ -23,8 +23,6 @@
 #include <vector>
 #include <cstdio>
 
-#include <stdio.h>
-
 std::string format_duration(std::chrono::milliseconds ms) {
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(ms);
     ms -= std::chrono::duration_cast<std::chrono::milliseconds>(secs);
@@ -67,9 +65,15 @@ int main(int argc, char** argv) {
     std::chrono::system_clock::time_point startTimer;
     std::chrono::system_clock::time_point endTimer;
 
+#ifdef _WIN32
+    sscanf_s(argv[1], "%d", &base);
+    sscanf_s(argv[2], "%d", &first);
+    sscanf_s(argv[3], "%d", &last);
+#else
     sscanf(argv[1], "%d", &base);
     sscanf(argv[2], "%d", &first);
     sscanf(argv[3], "%d", &last);
+#endif
 
     std::ifstream C80File("OE_3000000_C80.txt");
 
