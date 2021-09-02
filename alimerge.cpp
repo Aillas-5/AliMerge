@@ -147,12 +147,8 @@ int main(int argc, char** argv) {
             return 0;
         }
 
-        if (foundC80) {
-            std::cout << "Found the last 80 digit composite in base " << base << ": [" << ali1LastC80Composite << "]" << std::endl;
-        }
-        else {
-            std::cout << "Could not find a 80 digit composite in base " << base << std::endl;
-            return 0;
+        if (!foundC80) {
+            continue;
         }
 
         try
