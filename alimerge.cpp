@@ -21,6 +21,9 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cstdio>
+
+#include <stdio.h>
 
 std::string format_duration(std::chrono::milliseconds ms) {
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(ms);
@@ -64,9 +67,9 @@ int main(int argc, char** argv) {
     std::chrono::system_clock::time_point startTimer;
     std::chrono::system_clock::time_point endTimer;
 
-    sscanf_s(argv[1], "%d", &base);
-    sscanf_s(argv[2], "%d", &first);
-    sscanf_s(argv[3], "%d", &last);
+    sscanf(argv[1], "%d", &base);
+    sscanf(argv[2], "%d", &first);
+    sscanf(argv[3], "%d", &last);
 
     std::ifstream C80File("OE_3000000_C80.txt");
 
@@ -113,12 +116,12 @@ int main(int argc, char** argv) {
     for (exp = first; exp <= last; exp++) {
 
         startTimer = std::chrono::system_clock::now();
-        std::cout << "Downloading base " << base << "^" << exp;
+        //std::cout << "Downloading base " << base << "^" << exp;
 
         commandStr = R"(curl -q -s -o aliseq1 "http://www.factordb.com/elf.php?seq=)" + std::to_string(base) + "^" + std::to_string(exp) + R"(&type=1")";
         system(commandStr.c_str());
 
-        std::cout << " : Done" << std::endl;
+        //std::cout << " : Done" << std::endl;
         endTimer = std::chrono::system_clock::now();
         downloadFileDuration += endTimer - startTimer;
 
@@ -155,15 +158,15 @@ int main(int argc, char** argv) {
         {
             // Throw if not found
             std::string matchingBase = C80Map.at(ali1LastC80Composite);
-            std::cout << "80 digit composite has a matching in base " << matchingBase << std::endl;
+            //std::cout << "80 digit composite has a matching in base " << matchingBase << std::endl;
 
             startTimer = std::chrono::system_clock::now();
-            std::cout << "Downloading base " << matchingBase;
+            //std::cout << "Downloading base " << matchingBase;
 
             commandStr = R"(curl -q -s -o aliseq2 "http://www.factordb.com/elf.php?seq=)" + matchingBase + R"(&type=1")";
             system(commandStr.c_str());
 
-            std::cout << " : Done" << std::endl;
+            //std::cout << " : Done" << std::endl;
             endTimer = std::chrono::system_clock::now();
             downloadFileDuration += endTimer - startTimer;
 
@@ -179,7 +182,7 @@ int main(int argc, char** argv) {
                     auto ali1Search = ali1Map.find(composite);
                     if (ali1Search != ali1Map.end())
                     {
-                        std::cout << std::endl << std::to_string(base) + "^" + std::to_string(exp) + ":i" + ali1Search->second + " merges with " + matchingBase + ":i" + index << std::endl;
+                        std::cout << std::to_string(base) + "^" + std::to_string(exp) + ":i" + ali1Search->second + " merges with " + matchingBase + ":i" + index << std::endl;
                         break;
                     }
                 }
@@ -192,7 +195,7 @@ int main(int argc, char** argv) {
         }
         catch (const std::exception&)
         {
-            std::cout << "Could not find 80 digit composite " << ali1LastC80Composite << " in OE_3000000_C80.txt" << std::endl;
+            //std::cout << "Could not find 80 digit composite " << ali1LastC80Composite << " in OE_3000000_C80.txt" << std::endl;
         }
     }
 
@@ -201,12 +204,13 @@ int main(int argc, char** argv) {
     computationDuration = totalDuration - downloadFileDuration;
 
     auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds> (totalDuration);
+    auto totalSec = std::chrono::duration_cast<std::chrono::seconds> (totalDuration);
     auto downloadMs = std::chrono::duration_cast<std::chrono::milliseconds>(downloadFileDuration);
     auto computeMs = std::chrono::duration_cast<std::chrono::milliseconds> (computationDuration);
 
     std::cout << std::endl;
 
-    std::cout << "Total running time   : " << format_duration(totalMs) << std::endl;
+    std::cout << "Total running time   : " << format_duration(totalMs) << " (" << totalSec.count() << " seconds.)" << std::endl;
     std::cout << "Downloading file time: " << format_duration(downloadMs) << std::endl;
     std::cout << "Computation only time: " << format_duration(computeMs) << std::endl;
 
