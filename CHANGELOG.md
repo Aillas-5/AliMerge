@@ -10,7 +10,7 @@
 
 * v1.1.1 (2021-08-07)
     * New version published in Mersenne forum in this [post](https://www.mersenneforum.org/showpost.php?p=585093&postcount=1304).
-        * FixeD: URL to download the OE_3000000_C80.txt.
+        * Fixed: URL to download the OE_3000000_C80.txt.
         * Fixed: If an C80 was not found for an exponent, the application was stopped.
         * Remove outputs. It was too verbose when checking multiple exponents.
 
