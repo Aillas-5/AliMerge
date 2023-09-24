@@ -1,5 +1,10 @@
 CXX = g++
 FLAGS = -O2
+DEBUG = no
+
+ifeq ($(strip $(DEBUG)),yes)
+    FLAGS += -DDEBUG
+endif
 
 PROG = alimerge
 
