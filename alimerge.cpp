@@ -48,14 +48,15 @@ int main(int argc, char** argv) {
 
     std::ifstream ali1, ali2;
     std::string ali1LastC80Composite, commandStr;
-    int base, first, last, exp;
+    std::string base;
+    int first, last, exp;
 
     std::map<std::string, std::string> C80Map;
     std::map<std::string, std::string> ali1Map;
 
     if (argc < 4) {
-        std::cout << "Please invoke as: <./program> <base> <starting exponent> <ending exponent>" << std::endl;
-        return 0;
+        std::cerr << "Please invoke as: <./program> <base> <starting exponent> <ending exponent>" << std::endl;
+        return 1;
     }
 
     std::chrono::system_clock::duration downloadFileDuration = std::chrono::system_clock::duration::zero();
@@ -65,12 +66,12 @@ int main(int argc, char** argv) {
     std::chrono::system_clock::time_point startTimer;
     std::chrono::system_clock::time_point endTimer;
 
+    base = argv[1];
+
 #ifdef _WIN32
-    sscanf_s(argv[1], "%d", &base);
     sscanf_s(argv[2], "%d", &first);
     sscanf_s(argv[3], "%d", &last);
 #else
-    sscanf(argv[1], "%d", &base);
     sscanf(argv[2], "%d", &first);
     sscanf(argv[3], "%d", &last);
 #endif
@@ -94,8 +95,8 @@ int main(int argc, char** argv) {
             C80File.open("OE_3000000_C80.txt");
 
             if (!C80File.is_open()) {
-                std::cout << "Trouble has occurred while trying to read the 80 digit file!" << std::endl;
-                return 0;
+                std::cerr << "Trouble has occurred while trying to read the 80 digit file!" << std::endl;
+                return 1;
             }
         }
         else {
@@ -123,12 +124,16 @@ int main(int argc, char** argv) {
     for (exp = first; exp <= last; exp++) {
 
         startTimer = std::chrono::system_clock::now();
-        //std::cout << "Downloading base " << base << "^" << exp;
+#ifdef DEBUG
+        std::cout << "Downloading base " << base << "^" << exp;
+#endif
 
-        commandStr = R"(curl -q -s -o aliseq1 "http://www.factordb.com/elf.php?seq=)" + std::to_string(base) + "^" + std::to_string(exp) + R"(&type=1")";
+        commandStr = R"(curl -q -s -o aliseq1 "http://www.factordb.com/elf.php?seq=)" + base + "^" + std::to_string(exp) + R"(&type=1")";
         system(commandStr.c_str());
 
-        //std::cout << " : Done" << std::endl;
+#ifdef DEBUG
+        std::cout << " : Done" << std::endl;
+#endif
         endTimer = std::chrono::system_clock::now();
         downloadFileDuration += endTimer - startTimer;
 
@@ -153,8 +158,8 @@ int main(int argc, char** argv) {
             ali1.close();
         }
         else {
-            std::cout << "aliseq1 was not read properly!" << std::endl;
-            return 0;
+            std::cerr << "aliseq1 was not read properly!" << std::endl;
+            return 1;
         }
 
         if (!foundC80) {
@@ -165,15 +170,21 @@ int main(int argc, char** argv) {
         {
             // Throw if not found
             std::string matchingBase = C80Map.at(ali1LastC80Composite);
-            //std::cout << "80 digit composite has a matching in base " << matchingBase << std::endl;
+#ifdef DEBUG
+            std::cout << "80 digit composite has a matching in base " << matchingBase << std::endl;
+#endif
 
             startTimer = std::chrono::system_clock::now();
-            //std::cout << "Downloading base " << matchingBase;
+#ifdef DEBUG
+            std::cout << "Downloading base " << matchingBase;
+#endif
 
             commandStr = R"(curl -q -s -o aliseq2 "http://www.factordb.com/elf.php?seq=)" + matchingBase + R"(&type=1")";
             system(commandStr.c_str());
 
-            //std::cout << " : Done" << std::endl;
+#ifdef DEBUG
+            std::cout << " : Done" << std::endl;
+#endif
             endTimer = std::chrono::system_clock::now();
             downloadFileDuration += endTimer - startTimer;
 
@@ -189,20 +200,22 @@ int main(int argc, char** argv) {
                     auto ali1Search = ali1Map.find(composite);
                     if (ali1Search != ali1Map.end())
                     {
-                        std::cout << std::to_string(base) + "^" + std::to_string(exp) + ":i" + ali1Search->second + " merges with " + matchingBase + ":i" + index << std::endl;
+                        std::cout << base + "^" + std::to_string(exp) + ":i" + ali1Search->second + " merges with " + matchingBase + ":i" + index << std::endl;
                         break;
                     }
                 }
                 ali2.close();
             }
             else {
-                std::cout << "aliseq2 was not read properly!" << std::endl;
-                return 0;
+                std::cerr << "aliseq2 was not read properly!" << std::endl;
+                return 1;
             }
         }
         catch (const std::exception&)
         {
-            //std::cout << "Could not find 80 digit composite " << ali1LastC80Composite << " in OE_3000000_C80.txt" << std::endl;
+#ifdef DEBUG
+            std::cout << "Could not find 80 digit composite " << ali1LastC80Composite << " in OE_3000000_C80.txt" << std::endl;
+#endif
         }
     }
 
