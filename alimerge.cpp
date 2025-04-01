@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
     sscanf(argv[3], "%d", &last);
 #endif
 
-    std::ifstream C80File("OE_5000000_C80.txt");
+    std::ifstream C80File("OE_10M_C80.txt");
 
     if (C80File.fail())
     {
@@ -88,11 +88,11 @@ int main(int argc, char** argv) {
 
         if (getfile == "y") {
             startTimer = std::chrono::system_clock::now();
-            system(R"(curl -q -s -o OE_5000000_C80.txt "http://www.aliquotes.com/OE_5000000_C80.txt")");
+            system(R"(curl -q -s -o OE_10M_C80.txt "https://gist.githubusercontent.com/brubsby/f38941b3271005f397de0d281faddce5/raw/dcc085542ac80c097f84c30d3c743f120064ad60/OE_10M_C80.txt")");
             endTimer = std::chrono::system_clock::now();
             downloadFileDuration += endTimer - startTimer;
 
-            C80File.open("OE_5000000_C80.txt");
+            C80File.open("OE_10M_C80.txt");
 
             if (!C80File.is_open()) {
                 std::cerr << "Trouble has occurred while trying to read the 80 digit file!" << std::endl;
@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
         catch (const std::exception&)
         {
 #ifdef DEBUG
-            std::cout << "Could not find 80 digit composite " << ali1LastC80Composite << " in OE_3000000_C80.txt" << std::endl;
+            std::cout << "Could not find 80 digit composite " << ali1LastC80Composite << " in OE_10M_C80.txt" << std::endl;
 #endif
         }
     }
