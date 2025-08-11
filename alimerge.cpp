@@ -1,15 +1,15 @@
 // This program is designed to look for merges of Aliquot
-// sequences.  It uses the file OE_3000000_C80.txt to
-// match the last occurrence of an 80 digit composite and
-// determines the merged sequence, if any.  If a merge is
-// found, the program determines the merge points between
-// the two sequences.  This program is specifically built
-// to work with base tables found at:
+// sequences.  It uses the file OE_C80.txt to match the
+// last occurrence of an 80 digit composite and determines
+// the merged sequence, if any.  If a merge is found, the
+// program determines the merge points between the two
+// sequences.  This program is specifically built to work
+// with base tables found at:
 //    "Aliquot sequences starting on integer powers n^i"
 // (http://www.aliquotes.com/aliquotes_puissances_entieres.html)
 //
 // It can be compiled in linux via:
-//           g++ <sourcename> -o <finalname>
+//           make
 /////////////////////////////////////////////////////////////////
 
 #include <algorithm>
