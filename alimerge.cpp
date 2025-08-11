@@ -128,7 +128,7 @@ int main(int argc, char** argv) {
         std::cout << "Downloading base " << base << "^" << exp;
 #endif
 
-        commandStr = R"(curl -q -s -o aliseq1 "http://www.factordb.com/elf.php?seq=)" + base + "^" + std::to_string(exp) + R"(&type=1")";
+        commandStr = R"(curl -q -s -o aliseq1 "https://factordb.com/elf.php?seq=)" + base + "^" + std::to_string(exp) + R"(&type=1")";
         system(commandStr.c_str());
 
 #ifdef DEBUG
@@ -179,7 +179,7 @@ int main(int argc, char** argv) {
             std::cout << "Downloading base " << matchingBase;
 #endif
 
-            commandStr = R"(curl -q -s -o aliseq2 "http://www.factordb.com/elf.php?seq=)" + matchingBase + R"(&type=1")";
+            commandStr = R"(curl -q -s -o aliseq2 "https://factordb.com/elf.php?seq=)" + matchingBase + R"(&type=1")";
             system(commandStr.c_str());
 
 #ifdef DEBUG
@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
         catch (const std::exception&)
         {
 #ifdef DEBUG
-            std::cout << "Could not find 80 digit composite " << ali1LastC80Composite << " in OE_3000000_C80.txt" << std::endl;
+            std::cout << "Could not find 80 digit composite " << ali1LastC80Composite << " in OE_C80.txt" << std::endl;
 #endif
         }
     }
