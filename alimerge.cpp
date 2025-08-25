@@ -28,7 +28,7 @@
 static std::chrono::system_clock::duration downloadFileDuration;
 static std::chrono::system_clock::time_point globalTimer;
 
-static std::string format_duration(std::chrono::milliseconds ms) {
+static std::string formatDuration(std::chrono::milliseconds ms) {
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(ms);
     ms -= std::chrono::duration_cast<std::chrono::milliseconds>(secs);
     auto mins = std::chrono::duration_cast<std::chrono::minutes>(secs);
@@ -49,7 +49,7 @@ static std::string format_duration(std::chrono::milliseconds ms) {
     return ss.str();
 }
 
-static void print_timers() {
+static void printTimers() {
     const std::chrono::system_clock::time_point endTimer = std::chrono::system_clock::now();
     const std::chrono::system_clock::duration totalDuration = endTimer - globalTimer;
     const std::chrono::system_clock::duration computationDuration = totalDuration - downloadFileDuration;
@@ -61,13 +61,13 @@ static void print_timers() {
 
     std::cout << std::endl;
 
-    std::cout << "Total running time   : " << format_duration(totalMs) << " (" << totalSec.count() << " seconds)" << std::endl;
-    std::cout << "Downloading file time: " << format_duration(downloadMs) << std::endl;
-    std::cout << "Computation only time: " << format_duration(computeMs) << std::endl;
+    std::cout << "Total running time   : " << formatDuration(totalMs) << " (" << totalSec.count() << " seconds)" << std::endl;
+    std::cout << "Downloading file time: " << formatDuration(downloadMs) << std::endl;
+    std::cout << "Computation only time: " << formatDuration(computeMs) << std::endl;
 }
 
-static bool download(const std::string outputFile, const std::string url) {
-    const std::string commandStr = R"(curl -q -s -o ')" + outputFile + R"(' ')" + url + R"(')";
+static void downloadAndOpenFile(std::ifstream &inputFile, const std::string outputFileName, const std::string url, const std::string fileDescription) {
+    const std::string commandStr = R"(curl -q -s -o ')" + outputFileName + R"(' ')" + url + R"(')";
 
     const std::chrono::system_clock::time_point startTimer = std::chrono::system_clock::now();
 
@@ -76,10 +76,37 @@ static bool download(const std::string outputFile, const std::string url) {
     const std::chrono::system_clock::time_point endTimer = std::chrono::system_clock::now();
     downloadFileDuration += endTimer - startTimer;
 
-    return (returnCode == 0);
+    if (returnCode != 0) {
+#ifdef DEBUG
+        std::cout << std::endl;
+#endif
+        std::cerr << "Trouble has occurred while trying to download " << fileDescription << "!" << std::endl;
+        std::exit(1);
+    }
+
+    inputFile.open(outputFileName);
+
+    if (!inputFile.is_open()) {
+        std::cerr << "Trouble has occurred while trying to read " << fileDescription << "!" << std::endl;
+        std::exit(1);
+    }
 }
 
-static bool check_for_C80_file(std::ifstream &C80File) {
+static void downloadAndOpenSequenceFile(std::ifstream &inputFile, const std::string outputFileName, const std::string sequence) {
+#ifdef DEBUG
+        std::cout << "Downloading sequence " << sequence;
+#endif
+
+    const std::string sequenceUrl = "https://factordb.com/elf.php?seq=" + sequence + "&type=1";
+    const std::string downloadDescription = "the sequence " + sequence;
+    downloadAndOpenFile(inputFile, outputFileName, sequenceUrl, downloadDescription);
+
+#ifdef DEBUG
+        std::cout << " : Done" << std::endl;
+#endif
+}
+
+static bool checkForC80File(const std::ifstream &C80File) {
     if (C80File.fail())
     {
         std::string getfile;
@@ -99,26 +126,16 @@ static bool check_for_C80_file(std::ifstream &C80File) {
     }
 }
 
-static std::map<std::string, std::string> get_C80Map() {
+static std::map<std::string, std::string> getC80Map() {
     std::ifstream C80File("OE_C80.txt");
 
-    bool hasC80File = check_for_C80_file(C80File);
+    bool hasC80File = checkForC80File(C80File);
 
     globalTimer = std::chrono::system_clock::now();
 
     if (!hasC80File) {
-        bool downloadSucceeded = download("OE_C80.txt", "http://www.aliquotes.com/OE_C80.txt");
-        if (!downloadSucceeded) {
-            std::cerr << "Trouble has occurred while trying to download the 80 digit file!" << std::endl;
-            std::exit(1);
-        }
-
-        C80File.open("OE_C80.txt");
-
-        if (!C80File.is_open()) {
-            std::cerr << "Trouble has occurred while trying to read the 80 digit file!" << std::endl;
-            std::exit(1);
-        }
+        const std::string downloadDescription = "the 80 digit file";
+        downloadAndOpenFile(C80File, "OE_C80.txt", "http://www.aliquotes.com/OE_C80.txt", downloadDescription);
     }
 
     std::map<std::string, std::string> C80Map;
@@ -127,9 +144,9 @@ static std::map<std::string, std::string> get_C80Map() {
     {
         const auto founds = line.find(' ', 2);
         if (founds != std::string::npos) {
-            const std::string matchingBase = line.substr(1, founds - 1);
+            const std::string matchingSequence = line.substr(1, founds - 1);
             const std::string composite = line.substr(founds + 1);
-            C80Map[composite] = matchingBase;
+            C80Map[composite] = matchingSequence;
         }
     }
 
@@ -141,10 +158,9 @@ static std::map<std::string, std::string> get_C80Map() {
 int main(int argc, char** argv) {
 
     std::ifstream ali1, ali2;
-    std::string ali1LastC80Composite, sequenceUrl;
+    std::string ali1LastC80Composite;
     std::string line;
     unsigned int first, last;
-    bool downloadSucceeded;
 
     std::map<std::string, std::string> ali1Map;
 
@@ -180,51 +196,32 @@ int main(int argc, char** argv) {
 
     downloadFileDuration = std::chrono::system_clock::duration::zero();
 
-    std::map<std::string, std::string> C80Map = get_C80Map();
+    const std::map<std::string, std::string> C80Map = getC80Map();
 
     std::cout << "Running base " << base << " from " << first << " through " << last << " . . ." << std::endl;
 
     for (unsigned int exp = first; exp <= last; exp++) {
+        const std::string sequence = base + "^" + std::to_string(exp);
 
-#ifdef DEBUG
-        std::cout << "Downloading base " << base << "^" << exp;
-#endif
-
-        sequenceUrl = "https://factordb.com/elf.php?seq=" + base + "^" + std::to_string(exp) + "&type=1";
-        downloadSucceeded = download("aliseq1", sequenceUrl);
-        if (!downloadSucceeded) {
-            std::cerr << "Trouble has occurred while trying to download the sequence " << base << "^" << exp << "!" << std::endl;
-            return 1;
-        }
-
-#ifdef DEBUG
-        std::cout << " : Done" << std::endl;
-#endif
+        downloadAndOpenSequenceFile(ali1, "aliseq1", sequence);
 
         bool foundC80 = false;
         ali1LastC80Composite.clear();
 
-        ali1.open("aliseq1");
-        if (ali1.is_open()) {
-            while (std::getline(ali1, line)) {
-                const size_t foundp = line.find('.');
-                const size_t founde = line.find('=', foundp + 4);
-                const std::string index = line.substr(0, foundp - 1);
-                const std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
+        while (std::getline(ali1, line)) {
+            const size_t foundp = line.find('.');
+            const size_t founde = line.find('=', foundp + 4);
+            const std::string index = line.substr(0, foundp - 1);
+            const std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
 
-                ali1Map[composite] = index;
+            ali1Map[composite] = index;
 
-                if (composite.size() == 80) {
-                    ali1LastC80Composite = composite;
-                    foundC80 = true;
-                }
+            if (composite.size() == 80) {
+                ali1LastC80Composite = composite;
+                foundC80 = true;
             }
-            ali1.close();
         }
-        else {
-            std::cerr << "aliseq1 was not read properly!" << std::endl;
-            return 1;
-        }
+        ali1.close();
 
         if (!foundC80) {
             continue;
@@ -233,48 +230,28 @@ int main(int argc, char** argv) {
         try
         {
             // Throw if not found
-            const std::string matchingBase = C80Map.at(ali1LastC80Composite);
+            const std::string matchingSequence = C80Map.at(ali1LastC80Composite);
 #ifdef DEBUG
-            std::cout << "80 digit composite has a match in base " << matchingBase << std::endl;
+            std::cout << "80 digit composite has a match in sequence " << matchingSequence << std::endl;
 #endif
 
-#ifdef DEBUG
-            std::cout << "Downloading base " << matchingBase;
-#endif
+            downloadAndOpenSequenceFile(ali2, "aliseq2", matchingSequence);
 
-            sequenceUrl = "https://factordb.com/elf.php?seq=" + matchingBase + "&type=1";
-            downloadSucceeded = download("aliseq2", sequenceUrl);
-            if (!downloadSucceeded) {
-                std::cerr << "Trouble has occurred while trying to download the matching sequence " << matchingBase << "!" << std::endl;
-                return 1;
-            }
+            while (std::getline(ali2, line))
+            {
+                const size_t foundp = line.find('.');
+                const size_t founde = line.find('=');
+                const std::string index = line.substr(0, foundp - 1);
+                const std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
 
-#ifdef DEBUG
-            std::cout << " : Done" << std::endl;
-#endif
-
-            ali2.open("aliseq2");
-            if (ali2.is_open()) {
-                while (std::getline(ali2, line))
+                const auto ali1Search = ali1Map.find(composite);
+                if (ali1Search != ali1Map.end())
                 {
-                    const size_t foundp = line.find('.');
-                    const size_t founde = line.find('=');
-                    const std::string index = line.substr(0, foundp - 1);
-                    const std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
-
-                    const auto ali1Search = ali1Map.find(composite);
-                    if (ali1Search != ali1Map.end())
-                    {
-                        std::cout << base << "^" << exp << ":i" << ali1Search->second << " merges with " << matchingBase << ":i" << index << std::endl;
-                        break;
-                    }
+                    std::cout << sequence << ":i" << ali1Search->second << " merges with " << matchingSequence << ":i" << index << std::endl;
+                    break;
                 }
-                ali2.close();
             }
-            else {
-                std::cerr << "aliseq2 was not read properly!" << std::endl;
-                return 1;
-            }
+            ali2.close();
         }
         catch (const std::exception&)
         {
@@ -284,7 +261,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    print_timers();
+    printTimers();
 
     return 0;
 }
