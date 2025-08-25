@@ -66,6 +66,15 @@ static void printTimers() {
     std::cout << "Computation only time: " << formatDuration(computeMs) << std::endl;
 }
 
+static std::pair<const std::string, const std::string> parseElfLine(const std::string line) {
+    const size_t foundp = line.find('.');
+    const size_t founde = line.find('=', foundp + 4);
+    const std::string index = line.substr(0, foundp - 1);
+    const std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
+    const std::pair<std::string, std::string> lineData(index, composite);
+    return lineData;
+}
+
 static void downloadAndOpenFile(std::ifstream &inputFile, const std::string outputFileName, const std::string url, const std::string fileDescription) {
     const std::string commandStr = R"(curl -q -s -o ')" + outputFileName + R"(' ')" + url + R"(')";
 
@@ -209,12 +218,10 @@ int main(int argc, char** argv) {
         ali1LastC80Composite.clear();
 
         while (std::getline(ali1, line)) {
-            const size_t foundp = line.find('.');
-            const size_t founde = line.find('=', foundp + 4);
-            const std::string index = line.substr(0, foundp - 1);
-            const std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
+            std::pair<const std::string, const std::string> lineData = parseElfLine(line);
+            const std::string composite = lineData.second;
 
-            ali1Map[composite] = index;
+            ali1Map[composite] = lineData.first;
 
             if (composite.size() == 80) {
                 ali1LastC80Composite = composite;
@@ -239,15 +246,12 @@ int main(int argc, char** argv) {
 
             while (std::getline(ali2, line))
             {
-                const size_t foundp = line.find('.');
-                const size_t founde = line.find('=');
-                const std::string index = line.substr(0, foundp - 1);
-                const std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
+                std::pair<const std::string, const std::string> lineData = parseElfLine(line);
 
-                const auto ali1Search = ali1Map.find(composite);
+                const auto ali1Search = ali1Map.find(lineData.second);
                 if (ali1Search != ali1Map.end())
                 {
-                    std::cout << sequence << ":i" << ali1Search->second << " merges with " << matchingSequence << ":i" << index << std::endl;
+                    std::cout << sequence << ":i" << ali1Search->second << " merges with " << matchingSequence << ":i" << lineData.first << std::endl;
                     break;
                 }
             }
