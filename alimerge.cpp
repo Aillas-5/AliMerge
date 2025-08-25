@@ -30,7 +30,7 @@ static std::string format_duration(std::chrono::milliseconds ms) {
     ms -= std::chrono::duration_cast<std::chrono::milliseconds>(secs);
     auto mins = std::chrono::duration_cast<std::chrono::minutes>(secs);
     secs -= std::chrono::duration_cast<std::chrono::seconds>(mins);
-    auto hour = std::chrono::duration_cast<std::chrono::hours>(mins);
+    const auto hour = std::chrono::duration_cast<std::chrono::hours>(mins);
     mins -= std::chrono::duration_cast<std::chrono::minutes>(hour);
 
     std::stringstream ss;
@@ -46,13 +46,14 @@ static std::string format_duration(std::chrono::milliseconds ms) {
     return ss.str();
 }
 
-static bool download(std::string outputFile, std::string url, std::chrono::system_clock::duration &downloadFileDuration) {
-    std::chrono::system_clock::time_point startTimer = std::chrono::system_clock::now();
+static bool download(const std::string outputFile, const std::string url, std::chrono::system_clock::duration &downloadFileDuration) {
+    const std::string commandStr = R"(curl -q -s -o ')" + outputFile + R"(' ')" + url + R"(')";
 
-    std::string commandStr = "curl -q -s -o \'" + outputFile + "\' \'" + url + "\'";
-    int returnCode = system(commandStr.c_str());
+    const std::chrono::system_clock::time_point startTimer = std::chrono::system_clock::now();
 
-    std::chrono::system_clock::time_point endTimer = std::chrono::system_clock::now();
+    const int returnCode = system(commandStr.c_str());
+
+    const std::chrono::system_clock::time_point endTimer = std::chrono::system_clock::now();
     downloadFileDuration += endTimer - startTimer;
 
     return (returnCode == 0);
@@ -62,8 +63,7 @@ int main(int argc, char** argv) {
 
     std::ifstream ali1, ali2;
     std::string ali1LastC80Composite, sequenceUrl;
-    std::string base;
-    int first, last;
+    unsigned int first, last;
     bool downloadSucceeded;
 
     std::map<std::string, std::string> C80Map;
@@ -74,30 +74,33 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::chrono::system_clock::duration downloadFileDuration = std::chrono::system_clock::duration::zero();
-    std::chrono::system_clock::duration computationDuration = std::chrono::system_clock::duration::zero();
-    std::chrono::system_clock::duration totalDuration = std::chrono::system_clock::duration::zero();
-    std::chrono::system_clock::time_point globalTimer;
-    std::chrono::system_clock::time_point endTimer;
-
-    base = argv[1];
+    for (const char *c = argv[1]; *c; ++c) {
+        if (!std::isdigit(static_cast<unsigned char>(*c))) {
+            std::cerr << "Base must be an integer!" << std::endl;
+            return 1;
+        }
+    }
+    const std::string base = argv[1];
 
 #ifdef _WIN32
-    sscanf_s(argv[2], "%d", &first);
+    sscanf_s(argv[2], "%u", &first);
     if (argc > 3)
-        sscanf_s(argv[3], "%d", &last);
+        sscanf_s(argv[3], "%u", &last);
     else
         last = first;
 #else
-    sscanf(argv[2], "%d", &first);
+    sscanf(argv[2], "%u", &first);
     if (argc > 3)
-        sscanf(argv[3], "%d", &last);
+        sscanf(argv[3], "%u", &last);
     else
         last = first;
 #endif
 
     if (first > last)
         std::swap(first, last);
+
+    std::chrono::system_clock::duration downloadFileDuration = std::chrono::system_clock::duration::zero();
+    std::chrono::system_clock::time_point globalTimer;
 
     std::ifstream C80File("OE_C80.txt");
 
@@ -135,17 +138,17 @@ int main(int argc, char** argv) {
     std::string line;
     while (std::getline(C80File, line))
     {
-        auto founds = line.find(' ', 2);
+        const auto founds = line.find(' ', 2);
         if (founds != std::string::npos) {
-            std::string matchingBase = line.substr(1, founds - 1);
-            std::string composite = line.substr(founds + 1);
+            const std::string matchingBase = line.substr(1, founds - 1);
+            const std::string composite = line.substr(founds + 1);
             C80Map[composite] = matchingBase;
         }
     }
 
     std::cout << "Running base " << base << " from " << first << " through " << last << " . . ." << std::endl;
 
-    for (int exp = first; exp <= last; exp++) {
+    for (unsigned int exp = first; exp <= last; exp++) {
 
 #ifdef DEBUG
         std::cout << "Downloading base " << base << "^" << exp;
@@ -168,10 +171,10 @@ int main(int argc, char** argv) {
         ali1.open("aliseq1");
         if (ali1.is_open()) {
             while (std::getline(ali1, line)) {
-                size_t foundp = line.find('.');
-                size_t founde = line.find('=', foundp + 4);
-                std::string index = line.substr(0, foundp - 1);
-                std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
+                const size_t foundp = line.find('.');
+                const size_t founde = line.find('=', foundp + 4);
+                const std::string index = line.substr(0, foundp - 1);
+                const std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
 
                 ali1Map[composite] = index;
 
@@ -194,9 +197,9 @@ int main(int argc, char** argv) {
         try
         {
             // Throw if not found
-            std::string matchingBase = C80Map.at(ali1LastC80Composite);
+            const std::string matchingBase = C80Map.at(ali1LastC80Composite);
 #ifdef DEBUG
-            std::cout << "80 digit composite has a matching in base " << matchingBase << std::endl;
+            std::cout << "80 digit composite has a match in base " << matchingBase << std::endl;
 #endif
 
 #ifdef DEBUG
@@ -218,15 +221,15 @@ int main(int argc, char** argv) {
             if (ali2.is_open()) {
                 while (std::getline(ali2, line))
                 {
-                    size_t foundp = line.find('.');
-                    size_t founde = line.find('=');
-                    std::string index = line.substr(0, foundp - 1);
-                    std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
+                    const size_t foundp = line.find('.');
+                    const size_t founde = line.find('=');
+                    const std::string index = line.substr(0, foundp - 1);
+                    const std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
 
-                    auto ali1Search = ali1Map.find(composite);
+                    const auto ali1Search = ali1Map.find(composite);
                     if (ali1Search != ali1Map.end())
                     {
-                        std::cout << base + "^" + std::to_string(exp) + ":i" + ali1Search->second + " merges with " + matchingBase + ":i" + index << std::endl;
+                        std::cout << base << "^" << exp << ":i" << ali1Search->second << " merges with " << matchingBase << ":i" << index << std::endl;
                         break;
                     }
                 }
@@ -245,14 +248,14 @@ int main(int argc, char** argv) {
         }
     }
 
-    endTimer = std::chrono::system_clock::now();
-    totalDuration = endTimer - globalTimer;
-    computationDuration = totalDuration - downloadFileDuration;
+    const std::chrono::system_clock::time_point endTimer = std::chrono::system_clock::now();
+    const std::chrono::system_clock::duration totalDuration = endTimer - globalTimer;
+    const std::chrono::system_clock::duration computationDuration = totalDuration - downloadFileDuration;
 
-    auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds> (totalDuration);
-    auto totalSec = std::chrono::duration_cast<std::chrono::seconds> (totalDuration);
-    auto downloadMs = std::chrono::duration_cast<std::chrono::milliseconds>(downloadFileDuration);
-    auto computeMs = std::chrono::duration_cast<std::chrono::milliseconds> (computationDuration);
+    const auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds> (totalDuration);
+    const auto totalSec = std::chrono::duration_cast<std::chrono::seconds> (totalDuration);
+    const auto downloadMs = std::chrono::duration_cast<std::chrono::milliseconds>(downloadFileDuration);
+    const auto computeMs = std::chrono::duration_cast<std::chrono::milliseconds> (computationDuration);
 
     std::cout << std::endl;
 
