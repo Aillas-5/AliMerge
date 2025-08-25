@@ -21,9 +21,11 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <utility>
 #include <cstdio>
+#include <cstdlib>
 
-std::string format_duration(std::chrono::milliseconds ms) {
+static std::string format_duration(std::chrono::milliseconds ms) {
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(ms);
     ms -= std::chrono::duration_cast<std::chrono::milliseconds>(secs);
     auto mins = std::chrono::duration_cast<std::chrono::minutes>(secs);
@@ -44,18 +46,31 @@ std::string format_duration(std::chrono::milliseconds ms) {
     return ss.str();
 }
 
+static bool download(std::string outputFile, std::string url, std::chrono::system_clock::duration &downloadFileDuration) {
+    std::chrono::system_clock::time_point startTimer = std::chrono::system_clock::now();
+
+    std::string commandStr = "curl -q -s -o \'" + outputFile + "\' \'" + url + "\'";
+    int returnCode = system(commandStr.c_str());
+
+    std::chrono::system_clock::time_point endTimer = std::chrono::system_clock::now();
+    downloadFileDuration += endTimer - startTimer;
+
+    return (returnCode == 0);
+}
+
 int main(int argc, char** argv) {
 
     std::ifstream ali1, ali2;
-    std::string ali1LastC80Composite, commandStr;
+    std::string ali1LastC80Composite, sequenceUrl;
     std::string base;
-    int first, last, exp;
+    int first, last;
+    bool downloadSucceeded;
 
     std::map<std::string, std::string> C80Map;
     std::map<std::string, std::string> ali1Map;
 
-    if (argc < 4) {
-        std::cerr << "Please invoke as: <./program> <base> <starting exponent> <ending exponent>" << std::endl;
+    if (argc < 3) {
+        std::cerr << "Please invoke as: " << argv[0] << " <base> <starting exponent> [<ending exponent>]" << std::endl;
         return 1;
     }
 
@@ -63,18 +78,26 @@ int main(int argc, char** argv) {
     std::chrono::system_clock::duration computationDuration = std::chrono::system_clock::duration::zero();
     std::chrono::system_clock::duration totalDuration = std::chrono::system_clock::duration::zero();
     std::chrono::system_clock::time_point globalTimer;
-    std::chrono::system_clock::time_point startTimer;
     std::chrono::system_clock::time_point endTimer;
 
     base = argv[1];
 
 #ifdef _WIN32
     sscanf_s(argv[2], "%d", &first);
-    sscanf_s(argv[3], "%d", &last);
+    if (argc > 3)
+        sscanf_s(argv[3], "%d", &last);
+    else
+        last = first;
 #else
     sscanf(argv[2], "%d", &first);
-    sscanf(argv[3], "%d", &last);
+    if (argc > 3)
+        sscanf(argv[3], "%d", &last);
+    else
+        last = first;
 #endif
+
+    if (first > last)
+        std::swap(first, last);
 
     std::ifstream C80File("OE_C80.txt");
 
@@ -87,10 +110,11 @@ int main(int argc, char** argv) {
         globalTimer = std::chrono::system_clock::now();
 
         if (getfile == "y") {
-            startTimer = std::chrono::system_clock::now();
-            system(R"(curl -q -s -o OE_C80.txt "http://www.aliquotes.com/OE_C80.txt")");
-            endTimer = std::chrono::system_clock::now();
-            downloadFileDuration += endTimer - startTimer;
+            downloadSucceeded = download("OE_C80.txt", "http://www.aliquotes.com/OE_C80.txt", downloadFileDuration);
+            if (!downloadSucceeded) {
+                std::cerr << "Trouble has occurred while trying to download the 80 digit file!" << std::endl;
+                return 1;
+            }
 
             C80File.open("OE_C80.txt");
 
@@ -121,21 +145,22 @@ int main(int argc, char** argv) {
 
     std::cout << "Running base " << base << " from " << first << " through " << last << " . . ." << std::endl;
 
-    for (exp = first; exp <= last; exp++) {
+    for (int exp = first; exp <= last; exp++) {
 
-        startTimer = std::chrono::system_clock::now();
 #ifdef DEBUG
         std::cout << "Downloading base " << base << "^" << exp;
 #endif
 
-        commandStr = R"(curl -q -s -o aliseq1 "https://factordb.com/elf.php?seq=)" + base + "^" + std::to_string(exp) + R"(&type=1")";
-        system(commandStr.c_str());
+        sequenceUrl = "https://factordb.com/elf.php?seq=" + base + "^" + std::to_string(exp) + "&type=1";
+        downloadSucceeded = download("aliseq1", sequenceUrl, downloadFileDuration);
+        if (!downloadSucceeded) {
+            std::cerr << "Trouble has occurred while trying to download the sequence " << base << "^" << exp << "!" << std::endl;
+            return 1;
+        }
 
 #ifdef DEBUG
         std::cout << " : Done" << std::endl;
 #endif
-        endTimer = std::chrono::system_clock::now();
-        downloadFileDuration += endTimer - startTimer;
 
         bool foundC80 = false;
         ali1LastC80Composite.clear();
@@ -174,19 +199,20 @@ int main(int argc, char** argv) {
             std::cout << "80 digit composite has a matching in base " << matchingBase << std::endl;
 #endif
 
-            startTimer = std::chrono::system_clock::now();
 #ifdef DEBUG
             std::cout << "Downloading base " << matchingBase;
 #endif
 
-            commandStr = R"(curl -q -s -o aliseq2 "https://factordb.com/elf.php?seq=)" + matchingBase + R"(&type=1")";
-            system(commandStr.c_str());
+            sequenceUrl = "https://factordb.com/elf.php?seq=" + matchingBase + "&type=1";
+            downloadSucceeded = download("aliseq2", sequenceUrl, downloadFileDuration);
+            if (!downloadSucceeded) {
+                std::cerr << "Trouble has occurred while trying to download the matching sequence " << matchingBase << "!" << std::endl;
+                return 1;
+            }
 
 #ifdef DEBUG
             std::cout << " : Done" << std::endl;
 #endif
-            endTimer = std::chrono::system_clock::now();
-            downloadFileDuration += endTimer - startTimer;
 
             ali2.open("aliseq2");
             if (ali2.is_open()) {
