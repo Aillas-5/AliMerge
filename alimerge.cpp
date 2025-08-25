@@ -25,6 +25,9 @@
 #include <cstdio>
 #include <cstdlib>
 
+static std::chrono::system_clock::duration downloadFileDuration;
+static std::chrono::system_clock::time_point globalTimer;
+
 static std::string format_duration(std::chrono::milliseconds ms) {
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(ms);
     ms -= std::chrono::duration_cast<std::chrono::milliseconds>(secs);
@@ -46,7 +49,24 @@ static std::string format_duration(std::chrono::milliseconds ms) {
     return ss.str();
 }
 
-static bool download(const std::string outputFile, const std::string url, std::chrono::system_clock::duration &downloadFileDuration) {
+static void print_timers() {
+    const std::chrono::system_clock::time_point endTimer = std::chrono::system_clock::now();
+    const std::chrono::system_clock::duration totalDuration = endTimer - globalTimer;
+    const std::chrono::system_clock::duration computationDuration = totalDuration - downloadFileDuration;
+
+    const auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds> (totalDuration);
+    const auto totalSec = std::chrono::duration_cast<std::chrono::seconds> (totalDuration);
+    const auto downloadMs = std::chrono::duration_cast<std::chrono::milliseconds>(downloadFileDuration);
+    const auto computeMs = std::chrono::duration_cast<std::chrono::milliseconds> (computationDuration);
+
+    std::cout << std::endl;
+
+    std::cout << "Total running time   : " << format_duration(totalMs) << " (" << totalSec.count() << " seconds)" << std::endl;
+    std::cout << "Downloading file time: " << format_duration(downloadMs) << std::endl;
+    std::cout << "Computation only time: " << format_duration(computeMs) << std::endl;
+}
+
+static bool download(const std::string outputFile, const std::string url) {
     const std::string commandStr = R"(curl -q -s -o ')" + outputFile + R"(' ')" + url + R"(')";
 
     const std::chrono::system_clock::time_point startTimer = std::chrono::system_clock::now();
@@ -59,14 +79,73 @@ static bool download(const std::string outputFile, const std::string url, std::c
     return (returnCode == 0);
 }
 
+static bool check_for_C80_file(std::ifstream &C80File) {
+    if (C80File.fail())
+    {
+        std::string getfile;
+        std::cout << "The 80 digit file was not found - download it? (y/n): ";
+        std::cin >> getfile;
+
+        if (getfile == "y") {
+            return false;
+        }
+        else {
+            std::cout << "Leaving..." << std::endl;
+            std::exit(0);
+        }
+    }
+    else {
+        return true;
+    }
+}
+
+static std::map<std::string, std::string> get_C80Map() {
+    std::ifstream C80File("OE_C80.txt");
+
+    bool hasC80File = check_for_C80_file(C80File);
+
+    globalTimer = std::chrono::system_clock::now();
+
+    if (!hasC80File) {
+        bool downloadSucceeded = download("OE_C80.txt", "http://www.aliquotes.com/OE_C80.txt");
+        if (!downloadSucceeded) {
+            std::cerr << "Trouble has occurred while trying to download the 80 digit file!" << std::endl;
+            std::exit(1);
+        }
+
+        C80File.open("OE_C80.txt");
+
+        if (!C80File.is_open()) {
+            std::cerr << "Trouble has occurred while trying to read the 80 digit file!" << std::endl;
+            std::exit(1);
+        }
+    }
+
+    std::map<std::string, std::string> C80Map;
+    std::string line;
+    while (std::getline(C80File, line))
+    {
+        const auto founds = line.find(' ', 2);
+        if (founds != std::string::npos) {
+            const std::string matchingBase = line.substr(1, founds - 1);
+            const std::string composite = line.substr(founds + 1);
+            C80Map[composite] = matchingBase;
+        }
+    }
+
+    C80File.close();
+
+    return C80Map;
+}
+
 int main(int argc, char** argv) {
 
     std::ifstream ali1, ali2;
     std::string ali1LastC80Composite, sequenceUrl;
+    std::string line;
     unsigned int first, last;
     bool downloadSucceeded;
 
-    std::map<std::string, std::string> C80Map;
     std::map<std::string, std::string> ali1Map;
 
     if (argc < 3) {
@@ -99,52 +178,9 @@ int main(int argc, char** argv) {
     if (first > last)
         std::swap(first, last);
 
-    std::chrono::system_clock::duration downloadFileDuration = std::chrono::system_clock::duration::zero();
-    std::chrono::system_clock::time_point globalTimer;
+    downloadFileDuration = std::chrono::system_clock::duration::zero();
 
-    std::ifstream C80File("OE_C80.txt");
-
-    if (C80File.fail())
-    {
-        std::string getfile;
-        std::cout << "The 80 digit file was not found - download it? (y/n): ";
-        std::cin >> getfile;
-
-        globalTimer = std::chrono::system_clock::now();
-
-        if (getfile == "y") {
-            downloadSucceeded = download("OE_C80.txt", "http://www.aliquotes.com/OE_C80.txt", downloadFileDuration);
-            if (!downloadSucceeded) {
-                std::cerr << "Trouble has occurred while trying to download the 80 digit file!" << std::endl;
-                return 1;
-            }
-
-            C80File.open("OE_C80.txt");
-
-            if (!C80File.is_open()) {
-                std::cerr << "Trouble has occurred while trying to read the 80 digit file!" << std::endl;
-                return 1;
-            }
-        }
-        else {
-            std::cout << "Leaving..." << std::endl;
-            return 0;
-        }
-    }
-    else {
-        globalTimer = std::chrono::system_clock::now();
-    }
-
-    std::string line;
-    while (std::getline(C80File, line))
-    {
-        const auto founds = line.find(' ', 2);
-        if (founds != std::string::npos) {
-            const std::string matchingBase = line.substr(1, founds - 1);
-            const std::string composite = line.substr(founds + 1);
-            C80Map[composite] = matchingBase;
-        }
-    }
+    std::map<std::string, std::string> C80Map = get_C80Map();
 
     std::cout << "Running base " << base << " from " << first << " through " << last << " . . ." << std::endl;
 
@@ -155,7 +191,7 @@ int main(int argc, char** argv) {
 #endif
 
         sequenceUrl = "https://factordb.com/elf.php?seq=" + base + "^" + std::to_string(exp) + "&type=1";
-        downloadSucceeded = download("aliseq1", sequenceUrl, downloadFileDuration);
+        downloadSucceeded = download("aliseq1", sequenceUrl);
         if (!downloadSucceeded) {
             std::cerr << "Trouble has occurred while trying to download the sequence " << base << "^" << exp << "!" << std::endl;
             return 1;
@@ -207,7 +243,7 @@ int main(int argc, char** argv) {
 #endif
 
             sequenceUrl = "https://factordb.com/elf.php?seq=" + matchingBase + "&type=1";
-            downloadSucceeded = download("aliseq2", sequenceUrl, downloadFileDuration);
+            downloadSucceeded = download("aliseq2", sequenceUrl);
             if (!downloadSucceeded) {
                 std::cerr << "Trouble has occurred while trying to download the matching sequence " << matchingBase << "!" << std::endl;
                 return 1;
@@ -248,20 +284,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    const std::chrono::system_clock::time_point endTimer = std::chrono::system_clock::now();
-    const std::chrono::system_clock::duration totalDuration = endTimer - globalTimer;
-    const std::chrono::system_clock::duration computationDuration = totalDuration - downloadFileDuration;
-
-    const auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds> (totalDuration);
-    const auto totalSec = std::chrono::duration_cast<std::chrono::seconds> (totalDuration);
-    const auto downloadMs = std::chrono::duration_cast<std::chrono::milliseconds>(downloadFileDuration);
-    const auto computeMs = std::chrono::duration_cast<std::chrono::milliseconds> (computationDuration);
-
-    std::cout << std::endl;
-
-    std::cout << "Total running time   : " << format_duration(totalMs) << " (" << totalSec.count() << " seconds.)" << std::endl;
-    std::cout << "Downloading file time: " << format_duration(downloadMs) << std::endl;
-    std::cout << "Computation only time: " << format_duration(computeMs) << std::endl;
+    print_timers();
 
     return 0;
 }
