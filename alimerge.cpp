@@ -45,13 +45,22 @@ std::string format_duration(std::chrono::milliseconds ms) {
     return ss.str();
 }
 
+static void validateUnsignedInt(const std::string str) {
+    if (!std::all_of(str.cbegin(), str.cend(), [](unsigned char c){ return std::isdigit(c); })) {
+        std::cerr << "Value must be an unsigned integer!" << std::endl;
+        std::exit(1);
+    }
+}
+
 static unsigned int parseUnsignedInt(const char *str) {
-    int value;
+    validateUnsignedInt(str);
+
+    unsigned int value;
 
 #ifdef _WIN32
-    const int result = sscanf_s(str, "%d", &value);
+    const int result = sscanf_s(str, "%u", &value);
 #else
-    const int result = sscanf(str, "%d", &value);
+    const int result = sscanf(str, "%u", &value);
 #endif
 
     if (result != 1) {
@@ -59,12 +68,7 @@ static unsigned int parseUnsignedInt(const char *str) {
         std::exit(1);
     }
 
-    if (value < 0) {
-        std::cerr << "Value cannot be negative." << std::endl;
-        std::exit(1);
-    }
-
-    return static_cast<unsigned int>(value);
+    return value;
 }
 
 int main(int argc, char** argv) {
@@ -76,7 +80,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::string base = argv[1];
+    const std::string base = argv[1];
+
+    validateUnsignedInt(base);
 
     unsigned int first = parseUnsignedInt(argv[2]);
     unsigned int last = (argc > 3) ? parseUnsignedInt(argv[3]) : first;
