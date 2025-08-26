@@ -69,17 +69,30 @@ static unsigned int parseUnsignedInt(const char *str) {
 
 int main(int argc, char** argv) {
 
-    std::ifstream ali1, ali2;
-    std::string ali1LastC80Composite, commandStr;
-    std::string base;
-
-    std::map<std::string, std::string> C80Map;
-    std::map<std::string, std::string> ali1Map;
+    // Validate arguments
 
     if (argc < 3) {
         std::cerr << "Please invoke as: <./program> <base> <starting exponent> [<ending exponent>]" << std::endl;
         return 1;
     }
+
+    std::string base = argv[1];
+
+    unsigned int first = parseUnsignedInt(argv[2]);
+    unsigned int last = (argc > 3) ? parseUnsignedInt(argv[3]) : first;
+
+    if (first > last)
+        std::swap(first, last);
+
+    // Local variables
+
+    std::ifstream ali1, ali2;
+    std::string ali1LastC80Composite, commandStr;
+
+    std::map<std::string, std::string> C80Map;
+    std::map<std::string, std::string> ali1Map;
+
+    // Timers
 
     std::chrono::system_clock::duration downloadFileDuration = std::chrono::system_clock::duration::zero();
     std::chrono::system_clock::duration computationDuration = std::chrono::system_clock::duration::zero();
@@ -88,13 +101,7 @@ int main(int argc, char** argv) {
     std::chrono::system_clock::time_point startTimer;
     std::chrono::system_clock::time_point endTimer;
 
-    base = argv[1];
-
-    unsigned int first = parseUnsignedInt(argv[2]);
-    unsigned int last = (argc > 3) ? parseUnsignedInt(argv[3]) : first;
-
-    if (first > last)
-        std::swap(first, last);
+    // Read C80 file
 
     std::ifstream C80File("OE_C80.txt");
 
