@@ -93,6 +93,9 @@ int main(int argc, char** argv) {
     unsigned int first = parseUnsignedInt(argv[2]);
     unsigned int last = (argc > 3) ? parseUnsignedInt(argv[3]) : first;
 
+    if (first > last)
+        std::swap(first, last);
+
     std::ifstream C80File("OE_C80.txt");
 
     if (C80File.fail())
