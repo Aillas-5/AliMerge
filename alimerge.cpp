@@ -21,6 +21,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 
@@ -45,30 +46,30 @@ std::string format_duration(std::chrono::milliseconds ms) {
     return ss.str();
 }
 
-static void validateUnsignedInt(const std::string str) {
+static void validateUnsignedInt(const std::string &str) {
     if (!std::all_of(str.cbegin(), str.cend(), [](unsigned char c){ return std::isdigit(c); })) {
         std::cerr << "Value must be an unsigned integer!" << std::endl;
         std::exit(1);
     }
 }
 
-static unsigned int parseUnsignedInt(const char *str) {
+static unsigned int parseUnsignedInt(const std::string &str) {
     validateUnsignedInt(str);
 
-    unsigned int value;
+    try {
+        const unsigned long value = std::stoul(str);
 
-#ifdef _WIN32
-    const int result = sscanf_s(str, "%u", &value);
-#else
-    const int result = sscanf(str, "%u", &value);
-#endif
+        if (value > UINT32_MAX) {
+            std::cerr << "Integer exceeds size limit." << std::endl;
+            std::exit(1);
+        }
 
-    if (result != 1) {
+        return static_cast<unsigned int>(value);
+    }
+    catch (const std::exception&) {
         std::cerr << "Could not parse integer." << std::endl;
         std::exit(1);
     }
-
-    return value;
 }
 
 int main(int argc, char** argv) {
