@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
     // Validate arguments
 
     if (argc < 3) {
-        std::cerr << "Please invoke as: <./program> <base> <starting exponent> [<ending exponent>]" << std::endl;
+        std::cerr << "Please invoke as: " << argv[0] << " <base> <starting exponent> [<ending exponent>]" << std::endl;
         return 1;
     }
 
