@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include <cstdio>
+#include <cstdlib>
 
 std::string format_duration(std::chrono::milliseconds ms) {
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(ms);
@@ -44,12 +45,33 @@ std::string format_duration(std::chrono::milliseconds ms) {
     return ss.str();
 }
 
+static unsigned int parseUnsignedInt(const char *str) {
+    int value;
+
+#ifdef _WIN32
+    const int result = sscanf_s(str, "%d", &value);
+#else
+    const int result = sscanf(str, "%d", &value);
+#endif
+
+    if (result != 1) {
+        std::cerr << "Could not parse integer." << std::endl;
+        std::exit(1);
+    }
+
+    if (value < 0) {
+        std::cerr << "Value cannot be negative." << std::endl;
+        std::exit(1);
+    }
+
+    return static_cast<unsigned int>(value);
+}
+
 int main(int argc, char** argv) {
 
     std::ifstream ali1, ali2;
     std::string ali1LastC80Composite, commandStr;
     std::string base;
-    int first, last, exp;
 
     std::map<std::string, std::string> C80Map;
     std::map<std::string, std::string> ali1Map;
@@ -68,13 +90,8 @@ int main(int argc, char** argv) {
 
     base = argv[1];
 
-#ifdef _WIN32
-    sscanf_s(argv[2], "%d", &first);
-    sscanf_s(argv[3], "%d", &last);
-#else
-    sscanf(argv[2], "%d", &first);
-    sscanf(argv[3], "%d", &last);
-#endif
+    unsigned int first = parseUnsignedInt(argv[2]);
+    unsigned int last = parseUnsignedInt(argv[3]);
 
     std::ifstream C80File("OE_C80.txt");
 
@@ -121,7 +138,7 @@ int main(int argc, char** argv) {
 
     std::cout << "Running base " << base << " from " << first << " through " << last << " . . ." << std::endl;
 
-    for (exp = first; exp <= last; exp++) {
+    for (unsigned int exp = first; exp <= last; exp++) {
 
         startTimer = std::chrono::system_clock::now();
 #ifdef DEBUG
