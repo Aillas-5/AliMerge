@@ -15,15 +15,14 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <string>
-#include <vector>
-#include <cstdio>
+#include <cstdint>
+#include <cstdlib>
 
-std::string format_duration(std::chrono::milliseconds ms) {
+static std::string formatDuration(std::chrono::milliseconds ms) {
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(ms);
     ms -= std::chrono::duration_cast<std::chrono::milliseconds>(secs);
     auto mins = std::chrono::duration_cast<std::chrono::minutes>(secs);
@@ -44,20 +43,60 @@ std::string format_duration(std::chrono::milliseconds ms) {
     return ss.str();
 }
 
+static void validateUnsignedInt(const std::string &str) {
+    if (!std::all_of(str.cbegin(), str.cend(), [](unsigned char c){ return std::isdigit(c); })) {
+        std::cerr << "Value must be an unsigned integer!" << std::endl;
+        std::exit(1);
+    }
+}
+
+static unsigned int parseUnsignedInt(const std::string &str) {
+    validateUnsignedInt(str);
+
+    try {
+        const unsigned long value = std::stoul(str);
+
+        if (value > UINT32_MAX) {
+            std::cerr << "Integer exceeds size limit!" << std::endl;
+            std::exit(1);
+        }
+
+        return static_cast<unsigned int>(value);
+    }
+    catch (const std::exception&) {
+        std::cerr << "Could not parse integer!" << std::endl;
+        std::exit(1);
+    }
+}
+
 int main(int argc, char** argv) {
+
+    // Validate arguments
+
+    if (argc < 3) {
+        std::cerr << "Please invoke as: " << argv[0] << " <base> <starting exponent> [<ending exponent>]" << std::endl;
+        return 1;
+    }
+
+    const std::string base = argv[1];
+
+    validateUnsignedInt(base);
+
+    unsigned int first = parseUnsignedInt(argv[2]);
+    unsigned int last = (argc > 3) ? parseUnsignedInt(argv[3]) : first;
+
+    if (first > last)
+        std::swap(first, last);
+
+    // Local variables
 
     std::ifstream ali1, ali2;
     std::string ali1LastC80Composite, commandStr;
-    std::string base;
-    int first, last, exp;
 
     std::map<std::string, std::string> C80Map;
     std::map<std::string, std::string> ali1Map;
 
-    if (argc < 4) {
-        std::cerr << "Please invoke as: <./program> <base> <starting exponent> <ending exponent>" << std::endl;
-        return 1;
-    }
+    // Timers
 
     std::chrono::system_clock::duration downloadFileDuration = std::chrono::system_clock::duration::zero();
     std::chrono::system_clock::duration computationDuration = std::chrono::system_clock::duration::zero();
@@ -66,15 +105,7 @@ int main(int argc, char** argv) {
     std::chrono::system_clock::time_point startTimer;
     std::chrono::system_clock::time_point endTimer;
 
-    base = argv[1];
-
-#ifdef _WIN32
-    sscanf_s(argv[2], "%d", &first);
-    sscanf_s(argv[3], "%d", &last);
-#else
-    sscanf(argv[2], "%d", &first);
-    sscanf(argv[3], "%d", &last);
-#endif
+    // Read C80 file
 
     std::ifstream C80File("OE_C80.txt");
 
@@ -121,7 +152,7 @@ int main(int argc, char** argv) {
 
     std::cout << "Running base " << base << " from " << first << " through " << last << " . . ." << std::endl;
 
-    for (exp = first; exp <= last; exp++) {
+    for (unsigned int exp = first; exp <= last; exp++) {
 
         startTimer = std::chrono::system_clock::now();
 #ifdef DEBUG
@@ -230,9 +261,9 @@ int main(int argc, char** argv) {
 
     std::cout << std::endl;
 
-    std::cout << "Total running time   : " << format_duration(totalMs) << " (" << totalSec.count() << " seconds.)" << std::endl;
-    std::cout << "Downloading file time: " << format_duration(downloadMs) << std::endl;
-    std::cout << "Computation only time: " << format_duration(computeMs) << std::endl;
+    std::cout << "Total running time   : " << formatDuration(totalMs) << " (" << totalSec.count() << " seconds.)" << std::endl;
+    std::cout << "Downloading file time: " << formatDuration(downloadMs) << std::endl;
+    std::cout << "Computation only time: " << formatDuration(computeMs) << std::endl;
 
     return 0;
 }
