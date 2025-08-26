@@ -25,7 +25,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-std::string format_duration(std::chrono::milliseconds ms) {
+static std::string formatDuration(std::chrono::milliseconds ms) {
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(ms);
     ms -= std::chrono::duration_cast<std::chrono::milliseconds>(secs);
     auto mins = std::chrono::duration_cast<std::chrono::minutes>(secs);
@@ -264,9 +264,9 @@ int main(int argc, char** argv) {
 
     std::cout << std::endl;
 
-    std::cout << "Total running time   : " << format_duration(totalMs) << " (" << totalSec.count() << " seconds.)" << std::endl;
-    std::cout << "Downloading file time: " << format_duration(downloadMs) << std::endl;
-    std::cout << "Computation only time: " << format_duration(computeMs) << std::endl;
+    std::cout << "Total running time   : " << formatDuration(totalMs) << " (" << totalSec.count() << " seconds.)" << std::endl;
+    std::cout << "Downloading file time: " << formatDuration(downloadMs) << std::endl;
+    std::cout << "Computation only time: " << formatDuration(computeMs) << std::endl;
 
     return 0;
 }
