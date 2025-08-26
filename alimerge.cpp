@@ -76,8 +76,8 @@ int main(int argc, char** argv) {
     std::map<std::string, std::string> C80Map;
     std::map<std::string, std::string> ali1Map;
 
-    if (argc < 4) {
-        std::cerr << "Please invoke as: <./program> <base> <starting exponent> <ending exponent>" << std::endl;
+    if (argc < 3) {
+        std::cerr << "Please invoke as: <./program> <base> <starting exponent> [<ending exponent>]" << std::endl;
         return 1;
     }
 
@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
     base = argv[1];
 
     unsigned int first = parseUnsignedInt(argv[2]);
-    unsigned int last = parseUnsignedInt(argv[3]);
+    unsigned int last = (argc > 3) ? parseUnsignedInt(argv[3]) : first;
 
     std::ifstream C80File("OE_C80.txt");
 
