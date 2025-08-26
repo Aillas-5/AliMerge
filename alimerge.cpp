@@ -57,14 +57,14 @@ static unsigned int parseUnsignedInt(const std::string &str) {
         const unsigned long value = std::stoul(str);
 
         if (value > UINT32_MAX) {
-            std::cerr << "Integer exceeds size limit." << std::endl;
+            std::cerr << "Integer exceeds size limit!" << std::endl;
             std::exit(1);
         }
 
         return static_cast<unsigned int>(value);
     }
     catch (const std::exception&) {
-        std::cerr << "Could not parse integer." << std::endl;
+        std::cerr << "Could not parse integer!" << std::endl;
         std::exit(1);
     }
 }
