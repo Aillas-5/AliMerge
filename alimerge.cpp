@@ -23,6 +23,14 @@
 #include <vector>
 #include <cstdio>
 
+static auto parseElfLine(const std::string &line) {
+    const size_t foundp = line.find('.');
+    const size_t founde = line.find('=', foundp + 4);
+    const std::string index = line.substr(0, foundp - 1);
+    const std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
+    return make_pair(index, composite);
+}
+
 std::string format_duration(std::chrono::milliseconds ms) {
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(ms);
     ms -= std::chrono::duration_cast<std::chrono::milliseconds>(secs);
@@ -143,10 +151,7 @@ int main(int argc, char** argv) {
         ali1.open("aliseq1");
         if (ali1.is_open()) {
             while (std::getline(ali1, line)) {
-                size_t foundp = line.find('.');
-                size_t founde = line.find('=', foundp + 4);
-                std::string index = line.substr(0, foundp - 1);
-                std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
+                const auto [index, composite] = parseElfLine(line);
 
                 ali1Map[composite] = index;
 
@@ -192,10 +197,7 @@ int main(int argc, char** argv) {
             if (ali2.is_open()) {
                 while (std::getline(ali2, line))
                 {
-                    size_t foundp = line.find('.');
-                    size_t founde = line.find('=');
-                    std::string index = line.substr(0, foundp - 1);
-                    std::string composite = line.substr(foundp + 4, founde - (1 + foundp + 4));
+                    const auto [index, composite] = parseElfLine(line);
 
                     auto ali1Search = ali1Map.find(composite);
                     if (ali1Search != ali1Map.end())
